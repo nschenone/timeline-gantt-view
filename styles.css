@@ -673,11 +673,14 @@ body {
 .sabidurian-st-row {
   display: flex;
   align-items: center;
-  padding: 4px 4px;
-  gap: 2px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  transition: background 0.1s ease;
-  min-height: 28px;
+   position: absolute;
+   left: 0;
+   right: 0;
+   padding: 0 4px;
+   gap: 2px;
+   border-bottom: 1px solid var(--background-modifier-border);
+   transition: background 0.1s ease;
+   box-sizing: border-box;
 }
 
 .sabidurian-st-row:hover,
@@ -1285,15 +1288,19 @@ body.sabidurian-arrow-dragging * {
 
 /* ── Side table group headers ── */
 .sabidurian-st-group-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px;
-  background: var(--background-secondary);
-  border-bottom: 1px solid var(--background-modifier-border);
-  user-select: none;
-  font-family: var(--font-interface);
-  transition: background 0.15s ease;
+   display: flex;
+   align-items: center;
+   position: absolute;
+   left: 0;
+   right: 0;
+   gap: 6px;
+   padding: 0 8px;
+   background: var(--background-secondary);
+   border-bottom: 1px solid var(--background-modifier-border);
+   user-select: none;
+   font-family: var(--font-interface);
+   transition: background 0.15s ease;
+   box-sizing: border-box;
 }
 
 .sabidurian-st-group-row:hover {

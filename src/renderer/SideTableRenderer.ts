@@ -5,12 +5,17 @@
 
 import type { App, TFile } from 'obsidian';
 import type { SabidurianEntry, SabidurianGroup } from '../model/SabidurianEntry';
-import { ROW_HEIGHT, BAR_HEIGHT, Y_OFFSET, GROUP_HEADER_HEIGHT, compareEntriesForLayout } from '../model/LayoutEngine';
+import { BAR_HEIGHT, GROUP_HEADER_HEIGHT, compareEntriesForLayout } from '../model/LayoutEngine';
 import { formatSabidurianDate } from '../utils/dateUtils';
 
 export interface TableColumn {
   key: string;        // Property display name
   propId: string;     // BasesPropertyId
+}
+
+export interface SideTableLayout {
+  contentHeight: number;
+  getRowY: (row: number) => number;
 }
 
 const DEFAULT_TABLE_WIDTH = 220;
@@ -65,12 +70,14 @@ export class SideTableRenderer {
   render(
     entries: SabidurianEntry[],
     columns: TableColumn[],
-    getRowY: (row: number) => number,
+    layout: SideTableLayout,
   ): void {
     this.headerEl.empty();
     this.tableEl.empty();
 
     if (this.collapsed) return;
+
+    this.applyContentHeight(layout.contentHeight);
 
     // Header row
     const headerRow = this.headerEl.createDiv({ cls: 'sabidurian-st-header-row' });
@@ -80,12 +87,17 @@ export class SideTableRenderer {
       headerRow.createDiv({ cls: 'sabidurian-st-cell', text: col.key });
     }
 
-    // Sort entries by start date for a clean sequential list
-    const sorted = [...entries].sort(compareEntriesForLayout);
+    // Sort by assigned lane first so DOM order mirrors the vertical layout.
+    const sorted = [...entries].sort((a, b) => {
+      if (a.row !== b.row) return a.row - b.row;
+      return compareEntriesForLayout(a, b);
+    });
 
-    // Body rows — sequential list layout
+    // Body rows — positioned from the same lane anchors used by the bars.
     for (const entry of sorted) {
       const row = this.tableEl.createDiv({ cls: 'sabidurian-st-row' });
+      row.style.top = `${layout.getRowY(entry.row)}px`;
+      row.style.height = `${BAR_HEIGHT}px`;
 
       // Title cell — clickable
       const titleCell = row.createDiv({ cls: 'sabidurian-st-cell sabidurian-st-cell-title' });
@@ -137,12 +149,14 @@ export class SideTableRenderer {
     groups: SabidurianGroup[],
     allEntries: SabidurianEntry[],
     columns: TableColumn[],
-    getRowY: (row: number) => number,
+    layout: SideTableLayout,
   ): void {
     this.headerEl.empty();
     this.tableEl.empty();
 
     if (this.collapsed) return;
+
+    this.applyContentHeight(layout.contentHeight);
 
     // Header row
     const headerRow = this.headerEl.createDiv({ cls: 'sabidurian-st-header-row' });
@@ -154,6 +168,7 @@ export class SideTableRenderer {
     for (const group of groups) {
       // Group header row
       const groupRow = this.tableEl.createDiv({ cls: 'sabidurian-st-group-row' });
+      groupRow.style.top = `${group.headerY}px`;
       groupRow.style.height = `${GROUP_HEADER_HEIGHT}px`;
 
       const chevron = groupRow.createEl('span', {
@@ -178,9 +193,14 @@ export class SideTableRenderer {
       if (group.collapsed) continue;
 
       // Entry rows (sorted by start date within group)
-      const sorted = [...group.entries].sort(compareEntriesForLayout);
+      const sorted = [...group.entries].sort((a, b) => {
+        if (a.row !== b.row) return a.row - b.row;
+        return compareEntriesForLayout(a, b);
+      });
       for (const entry of sorted) {
         const row = this.tableEl.createDiv({ cls: 'sabidurian-st-row sabidurian-st-row-grouped' });
+        row.style.top = `${layout.getRowY(entry.row)}px`;
+        row.style.height = `${BAR_HEIGHT}px`;
 
         // Title cell — clickable, indented
         const titleCell = row.createDiv({ cls: 'sabidurian-st-cell sabidurian-st-cell-title sabidurian-st-cell-indented' });
@@ -226,6 +246,10 @@ export class SideTableRenderer {
   /** Set a callback for group collapse/expand toggle. */
   setGroupToggleCallback(cb: (groupName: string) => void): void {
     this.onGroupToggle = cb;
+  }
+
+  private applyContentHeight(contentHeight: number): void {
+    this.tableEl.style.height = `${contentHeight}px`;
   }
 
   private setupDividerDrag(): void {

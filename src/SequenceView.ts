@@ -24,7 +24,7 @@ import { HeaderRenderer } from './renderer/HeaderRenderer';
 import { TimelineRenderer } from './renderer/TimelineRenderer';
 import { BarRenderer } from './renderer/BarRenderer';
 import { SideTableRenderer, type TableColumn } from './renderer/SideTableRenderer';
-import { LayoutEngine, ROW_HEIGHT } from './model/LayoutEngine';
+import { LayoutEngine } from './model/LayoutEngine';
 import type { SabidurianEntry, SabidurianGroup } from './model/SabidurianEntry';
 import { GroupHeaderRenderer } from './renderer/GroupHeaderRenderer';
 import { getColorForValue, resetColorCache } from './utils/colorUtils';
@@ -312,7 +312,10 @@ export class SequenceView extends BasesView {
       if (isGrouped) {
         this.sideTableRenderer.renderGrouped(
           sabidurianGroups, sabidurianEntries, tableColumns,
-          (row) => this.layoutEngine.getRowY(row),
+          {
+            contentHeight: canvasHeight,
+            getRowY: (row) => this.layoutEngine.getRowY(row),
+          },
         );
         this.sideTableRenderer.setGroupToggleCallback((groupName) => {
           this.toggleGroup(groupName);
@@ -320,7 +323,10 @@ export class SequenceView extends BasesView {
       } else {
         this.sideTableRenderer.render(
           sabidurianEntries, tableColumns,
-          (row) => this.layoutEngine.getRowY(row),
+          {
+            contentHeight: canvasHeight,
+            getRowY: (row) => this.layoutEngine.getRowY(row),
+          },
         );
       }
 

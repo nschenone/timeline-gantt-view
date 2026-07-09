@@ -7,7 +7,7 @@ import { HeaderRenderer } from './renderer/HeaderRenderer';
 import { TimelineRenderer } from './renderer/TimelineRenderer';
 import { BarRenderer } from './renderer/BarRenderer';
 import { SideTableRenderer, type TableColumn } from './renderer/SideTableRenderer';
-import { LayoutEngine, ROW_HEIGHT } from './model/LayoutEngine';
+import { LayoutEngine } from './model/LayoutEngine';
 import type { SabidurianEntry, SabidurianGroup } from './model/SabidurianEntry';
 import { GroupHeaderRenderer } from './renderer/GroupHeaderRenderer';
 import {
@@ -337,7 +337,10 @@ export class SabidurianView extends BasesView {
           sabidurianGroups,
           sabidurianEntries,
           tableColumns,
-          (row) => this.layoutEngine.getRowY(row),
+          {
+            contentHeight: canvasHeight,
+            getRowY: (row) => this.layoutEngine.getRowY(row),
+          },
         );
         this.sideTableRenderer.setGroupToggleCallback((groupName) => {
           this.toggleGroup(groupName);
@@ -346,7 +349,10 @@ export class SabidurianView extends BasesView {
         this.sideTableRenderer.render(
           sabidurianEntries,
           tableColumns,
-          (row) => this.layoutEngine.getRowY(row),
+          {
+            contentHeight: canvasHeight,
+            getRowY: (row) => this.layoutEngine.getRowY(row),
+          },
         );
       }
 
