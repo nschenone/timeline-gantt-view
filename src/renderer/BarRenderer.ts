@@ -8,6 +8,7 @@ import type { SabidurianEntry } from '../model/SabidurianEntry';
 import { BAR_HEIGHT } from '../model/LayoutEngine';
 import { formatSabidurianDate } from '../utils/dateUtils';
 import type { NumericAxis } from '../scale/NumericAxis';
+import { normalizeConfigToken } from '../utils/viewConfigUtils';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const POINT_RADIUS = 7;
@@ -50,6 +51,8 @@ export class BarRenderer {
 
   /** Tag to focus on — entries without this tag are visually greyed out. */
   private focusTag: string | null = null;
+  /** Optional normalized allowlist of tooltip property keys. */
+  private tooltipPropsAllowlist: Set<string> | null = null;
 
   /** Set the axis for fuzzy date rendering. Call before render(). */
   setAxis(axis: NumericAxis): void {
@@ -64,6 +67,11 @@ export class BarRenderer {
   /** Set the focus tag. Entries without this tag are greyed out. */
   setFocusTag(tag: string | null): void {
     this.focusTag = tag;
+  }
+
+  /** Limit tooltip extra properties to a normalized allowlist. */
+  setTooltipPropsAllowlist(props: string[] | null): void {
+    this.tooltipPropsAllowlist = props?.length ? new Set(props) : null;
   }
 
   /** Check whether an entry's tags contain the focus tag. */
@@ -462,7 +470,19 @@ export class BarRenderer {
     // User-defined properties (safe: textContent only)
     for (const [key, val] of Object.entries(entry.properties)) {
       const keyLower = key.toLowerCase();
-      if (val && val !== 'null' && !BarRenderer.TOOLTIP_EXCLUDE_BASE.has(keyLower) && !this.tooltipExcludeExtra.has(keyLower)) {
+      const rawKey = normalizeConfigToken(entry.propertyKeys[key] ?? key);
+      const allowlist = this.tooltipPropsAllowlist;
+      const shouldInclude = !allowlist || allowlist.has(keyLower) || allowlist.has(rawKey);
+
+      if (
+        val
+        && val !== 'null'
+        && shouldInclude
+        && !BarRenderer.TOOLTIP_EXCLUDE_BASE.has(keyLower)
+        && !BarRenderer.TOOLTIP_EXCLUDE_BASE.has(rawKey)
+        && !this.tooltipExcludeExtra.has(keyLower)
+        && !this.tooltipExcludeExtra.has(rawKey)
+      ) {
         this.tooltipEl.createEl('br');
         const span = this.tooltipEl.createEl('span', { cls: 'sabidurian-tooltip-prop' });
         span.textContent = `${key}:`;

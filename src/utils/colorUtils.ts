@@ -3,6 +3,9 @@
  * Uses CSS variables so it adapts to light/dark themes automatically.
  */
 
+import type { ColorOverrideMap } from './viewConfigUtils';
+import { normalizeConfigToken } from './viewConfigUtils';
+
 /**
  * 16 distinct Obsidian CSS color variables for bar coloring.
  * These adapt automatically to light/dark themes.
@@ -61,17 +64,26 @@ function normalizeHex(str: string): string {
  * it is used directly. Otherwise, same value always maps to the same
  * palette color within a session.
  */
-export function getColorForValue(value: string | null | undefined): string {
+export function getColorForValue(
+  value: string | null | undefined,
+  overrides?: ColorOverrideMap | null,
+): string {
   if (!value) return COLOR_VARS[0];
 
   const trimmed = value.trim();
+  const normalized = normalizeConfigToken(trimmed);
+
+  const override = overrides?.[normalized];
+  if (override) {
+    return override;
+  }
 
   // Direct hex color support
   if (isHexColor(trimmed)) {
     return normalizeHex(trimmed);
   }
 
-  const key = trimmed.toLowerCase();
+  const key = normalized;
   if (colorCache.has(key)) {
     return COLOR_VARS[colorCache.get(key)! % COLOR_VARS.length];
   }

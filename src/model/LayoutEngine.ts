@@ -20,6 +20,16 @@ const GROUP_HEADER_HEIGHT = 32;
 const GROUP_GAP = 12; // Gap between groups
 
 export const ROW_HEIGHT = BAR_HEIGHT + ROW_GAP;
+export type StackingMode = 'compact' | 'one-row-per-bar';
+
+export function compareEntriesForLayout(a: SabidurianEntry, b: SabidurianEntry): number {
+  if (a.startYear !== b.startYear) return a.startYear - b.startYear;
+
+  const durationDiff = (b.endYear - b.startYear) - (a.endYear - a.startYear);
+  if (durationDiff !== 0) return durationDiff;
+
+  return a.label.localeCompare(b.label);
+}
 
 export class LayoutEngine {
   /** Maps absolute row index → y pixel position. Used for grouped + ungrouped. */
@@ -31,13 +41,13 @@ export class LayoutEngine {
    * Mutates entries in place (sets .row, .x, .width).
    * Returns the total height needed.
    */
-  layout(entries: SabidurianEntry[], axis: NumericAxis): number {
+  layout(entries: SabidurianEntry[], axis: NumericAxis, mode: StackingMode = 'compact'): number {
     if (entries.length === 0) return 0;
 
     this.rowYMap.clear();
     this.nextAbsoluteRow = 0;
 
-    const totalRows = this.assignRows(entries, axis, 0);
+    const totalRows = this.assignRows(entries, axis, 0, mode);
 
     // Build rowYMap for ungrouped layout (simple sequential)
     for (let r = 0; r < totalRows; r++) {
@@ -53,7 +63,7 @@ export class LayoutEngine {
    * Mutates entries in place and populates group metadata.
    * Returns the total canvas height.
    */
-  layoutGrouped(groups: SabidurianGroup[], axis: NumericAxis): number {
+  layoutGrouped(groups: SabidurianGroup[], axis: NumericAxis, mode: StackingMode = 'compact'): number {
     this.rowYMap.clear();
     this.nextAbsoluteRow = 0;
 
@@ -82,7 +92,7 @@ export class LayoutEngine {
 
       // Assign rows within this group's namespace
       const rowsBefore = this.nextAbsoluteRow;
-      const groupRows = this.assignRows(group.entries, axis, this.nextAbsoluteRow);
+      const groupRows = this.assignRows(group.entries, axis, this.nextAbsoluteRow, mode);
 
       // Build rowYMap for this group's rows
       for (let r = 0; r < groupRows; r++) {
@@ -104,24 +114,28 @@ export class LayoutEngine {
    * Core row assignment algorithm. Assigns absolute row indices starting
    * from `baseRow`. Returns the number of rows used.
    */
-  private assignRows(entries: SabidurianEntry[], axis: NumericAxis, baseRow: number): number {
+  private assignRows(
+    entries: SabidurianEntry[],
+    axis: NumericAxis,
+    baseRow: number,
+    mode: StackingMode,
+  ): number {
     // Sort by start year, then by duration (longer first for better packing)
-    const sorted = [...entries].sort((a, b) => {
-      if (a.startYear !== b.startYear) return a.startYear - b.startYear;
-      return (b.endYear - b.startYear) - (a.endYear - a.startYear);
-    });
+    const sorted = [...entries].sort(compareEntriesForLayout);
+
+    if (mode === 'one-row-per-bar') {
+      sorted.forEach((entry, idx) => {
+        this.computeEntryGeometry(entry, axis);
+        entry.row = baseRow + idx;
+      });
+      return sorted.length;
+    }
 
     // Track the rightmost pixel edge occupied in each row (relative to group)
     const rowEnds: number[] = [];
 
     for (const entry of sorted) {
-      // Compute pixel positions
-      entry.x = axis.yearToPixel(entry.startYear);
-      if (entry.isPoint) {
-        entry.width = 0;
-      } else {
-        entry.width = Math.max(axis.yearToPixel(entry.endYear) - entry.x, 4);
-      }
+      this.computeEntryGeometry(entry, axis);
 
       // Determine effective edges for overlap detection
       // Include fuzzy/uncertainty extensions if present
@@ -165,6 +179,15 @@ export class LayoutEngine {
     }
 
     return rowEnds.length;
+  }
+
+  private computeEntryGeometry(entry: SabidurianEntry, axis: NumericAxis): void {
+    entry.x = axis.yearToPixel(entry.startYear);
+    if (entry.isPoint) {
+      entry.width = 0;
+    } else {
+      entry.width = Math.max(axis.yearToPixel(entry.endYear) - entry.x, 4);
+    }
   }
 
   /** Get the y pixel position for a given row index. */

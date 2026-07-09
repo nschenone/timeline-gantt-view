@@ -38,6 +38,7 @@ import { TouchManager } from './interaction/TouchManager';
 import { isTouchDevice, isMobileViewport, debounce } from './utils/debounce';
 import { ViewportCuller, type ViewportBounds } from './model/ViewportCuller';
 import { confirmAction } from './utils/confirmModal';
+import { parseColorMapJson, parseTooltipPropsJson, type ColorOverrideMap } from './utils/viewConfigUtils';
 
 const VIEW_PADDING = 0.5; // Half-step padding on each side
 const MIN_TIMELINE_HEIGHT = 200;
@@ -134,6 +135,8 @@ export class SequenceView extends BasesView {
     const depPropRaw = this.config.get('dependencyProp') as string | undefined;
     const depPropName = depPropRaw?.trim() || this.plugin.settings.dependencyProperty || 'blocked-by';
     const denseMode = this.config.get('denseMode') as boolean ?? false;
+    const colorOverrides = parseColorMapJson(this.config.get('colorMapJson') as string | undefined);
+    const tooltipProps = parseTooltipPropsJson(this.config.get('tooltipPropsJson') as string | undefined);
 
     // Store raw frontmatter keys for write-back.
     // Bases property IDs are prefixed with "note." — strip it for frontmatter access.
@@ -164,7 +167,7 @@ export class SequenceView extends BasesView {
       for (const group of groupedData) {
         const groupName = group.hasKey() ? String(group.key) : '(No value)';
         const parsed = this.parseSequenceEntries(
-          group.entries, orderPropId, orderEndPropId, colorPropId, depPropName,
+          group.entries, orderPropId, orderEndPropId, colorPropId, depPropName, colorOverrides,
         );
         for (const e of parsed) e.groupKey = groupName;
         sabidurianEntries.push(...parsed);
@@ -178,7 +181,7 @@ export class SequenceView extends BasesView {
       }
     } else {
       sabidurianEntries = this.parseSequenceEntries(
-        entries, orderPropId, orderEndPropId, colorPropId, depPropName,
+        entries, orderPropId, orderEndPropId, colorPropId, depPropName, colorOverrides,
       );
     }
 
@@ -351,6 +354,7 @@ export class SequenceView extends BasesView {
     );
     this.barRenderer.sequenceMode = true;
     this.barRenderer.denseToSparse = this._denseToSparse;
+    this.barRenderer.setTooltipPropsAllowlist(tooltipProps);
 
     // Bar display props (F4)
     const barDisplayProps: string[] = [];
@@ -648,6 +652,7 @@ export class SequenceView extends BasesView {
     orderEndPropId: BasesPropertyId | null,
     colorPropId: BasesPropertyId | null,
     depPropName?: string,
+    colorOverrides?: ColorOverrideMap | null,
   ): SabidurianEntry[] {
     const result: SabidurianEntry[] = [];
 
@@ -682,16 +687,18 @@ export class SequenceView extends BasesView {
       // Color
       const colorVal = colorPropId ? entry.getValue(colorPropId) : null;
       const colorStr = colorVal ? colorVal.toString() : '';
-      const color = getColorForValue(colorStr);
+      const color = getColorForValue(colorStr, colorOverrides);
 
       // Properties
       const properties: Record<string, string> = {};
+      const propertyKeys: Record<string, string> = {};
       if (this.allProperties) {
         for (const propId of this.allProperties) {
           const val = entry.getValue(propId);
           if (val) {
             const name = this.config.getDisplayName(propId);
             properties[name] = val.toString();
+            propertyKeys[name] = propId.replace(/^note\./, '');
           }
         }
       }
@@ -722,6 +729,7 @@ export class SequenceView extends BasesView {
         width: 0,
         dependencies,
         properties,
+        propertyKeys,
       });
     }
 

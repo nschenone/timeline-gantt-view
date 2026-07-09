@@ -33,6 +33,12 @@ import { ViewportCuller, type ViewportBounds } from './model/ViewportCuller';
 import { MeasureManager } from './interaction/MeasureManager';
 import { MarkerRenderer } from './renderer/MarkerRenderer';
 import { confirmAction } from './utils/confirmModal';
+import {
+  parseColorMapJson,
+  parseTooltipPropsJson,
+  type ColorOverrideMap,
+} from './utils/viewConfigUtils';
+import type { StackingMode } from './model/LayoutEngine';
 
 // Import all scale registrations
 import './scale/scales/index';
@@ -175,6 +181,9 @@ export class SabidurianView extends BasesView {
     // Dependency property: view config > plugin setting > default
     const depPropRaw = this.config.get('dependencyProp') as string | undefined;
     const depPropName = depPropRaw?.trim() || this.plugin.settings.dependencyProperty || 'blocked-by';
+    const colorOverrides = parseColorMapJson(this.config.get('colorMapJson') as string | undefined);
+    const tooltipProps = parseTooltipPropsJson(this.config.get('tooltipPropsJson') as string | undefined);
+    const stackingMode = this.getStackingMode();
 
     // BCE toggle
     const enableBCE = this.config.get('enableBCE') as boolean ?? true;
@@ -200,7 +209,7 @@ export class SabidurianView extends BasesView {
       sabidurianEntries = [];
       for (const group of groupedData) {
         const groupName = group.hasKey() ? String(group.key) : '(No value)';
-        const parsed = this.parseEntries(group.entries, startPropId, endPropId, colorPropId, depPropName, enableBCE, earliestStartPropId, latestEndPropId);
+        const parsed = this.parseEntries(group.entries, startPropId, endPropId, colorPropId, depPropName, enableBCE, earliestStartPropId, latestEndPropId, colorOverrides);
         // Tag each entry with its group
         for (const e of parsed) e.groupKey = groupName;
         sabidurianEntries.push(...parsed);
@@ -213,7 +222,7 @@ export class SabidurianView extends BasesView {
         });
       }
     } else {
-      sabidurianEntries = this.parseEntries(entries, startPropId, endPropId, colorPropId, depPropName, enableBCE, earliestStartPropId, latestEndPropId);
+      sabidurianEntries = this.parseEntries(entries, startPropId, endPropId, colorPropId, depPropName, enableBCE, earliestStartPropId, latestEndPropId, colorOverrides);
     }
 
     this.currentEntries = sabidurianEntries;
@@ -305,12 +314,12 @@ export class SabidurianView extends BasesView {
     let visibleEntries: SabidurianEntry[];
 
     if (isGrouped) {
-      const totalHeight = this.layoutEngine.layoutGrouped(sabidurianGroups, this.axis);
+      const totalHeight = this.layoutEngine.layoutGrouped(sabidurianGroups, this.axis, stackingMode);
       canvasHeight = Math.max(MIN_TIMELINE_HEIGHT, totalHeight);
       // Visible = entries not in collapsed groups
       visibleEntries = sabidurianEntries.filter(e => e.row >= 0);
     } else {
-      const totalHeight = this.layoutEngine.layout(sabidurianEntries, this.axis);
+      const totalHeight = this.layoutEngine.layout(sabidurianEntries, this.axis, stackingMode);
       canvasHeight = Math.max(MIN_TIMELINE_HEIGHT, totalHeight);
       visibleEntries = sabidurianEntries;
     }
@@ -376,6 +385,7 @@ export class SabidurianView extends BasesView {
     );
     this.barRenderer.setAxis(this.axis);
     this.barRenderer.setDatePropNames(this._startPropName, this._endPropName);
+    this.barRenderer.setTooltipPropsAllowlist(tooltipProps);
 
     // Configure bar property badges
     const barDisplayProps: string[] = [];
@@ -874,6 +884,7 @@ export class SabidurianView extends BasesView {
     enableBCE = true,
     earliestStartPropId?: BasesPropertyId | null,
     latestEndPropId?: BasesPropertyId | null,
+    colorOverrides?: ColorOverrideMap | null,
   ): SabidurianEntry[] {
     const result: SabidurianEntry[] = [];
 
@@ -961,16 +972,18 @@ export class SabidurianView extends BasesView {
       // Color
       const colorVal = colorPropId ? entry.getValue(colorPropId) : null;
       const colorStr = colorVal ? colorVal.toString() : '';
-      const color = getColorForValue(colorStr);
+      const color = getColorForValue(colorStr, colorOverrides);
 
       // Gather extra properties for tooltip + table
       const properties: Record<string, string> = {};
+      const propertyKeys: Record<string, string> = {};
       if (this.allProperties) {
         for (const propId of this.allProperties) {
           const val = entry.getValue(propId);
           if (val) {
             const name = this.config.getDisplayName(propId);
             properties[name] = val.toString();
+            propertyKeys[name] = propId.replace(/^note\./, '');
           }
         }
       }
@@ -1014,10 +1027,17 @@ export class SabidurianView extends BasesView {
         width: 0,
         dependencies,
         properties,
+        propertyKeys,
       });
     }
 
     return result;
+  }
+
+  private getStackingMode(): StackingMode {
+    return this.config.get('stackingMode') === 'one-row-per-bar'
+      ? 'one-row-per-bar'
+      : 'compact';
   }
 
   /**

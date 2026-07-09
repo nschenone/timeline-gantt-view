@@ -5,7 +5,7 @@
 
 import type { App, TFile } from 'obsidian';
 import type { SabidurianEntry, SabidurianGroup } from '../model/SabidurianEntry';
-import { ROW_HEIGHT, BAR_HEIGHT, Y_OFFSET, GROUP_HEADER_HEIGHT } from '../model/LayoutEngine';
+import { ROW_HEIGHT, BAR_HEIGHT, Y_OFFSET, GROUP_HEADER_HEIGHT, compareEntriesForLayout } from '../model/LayoutEngine';
 import { formatSabidurianDate } from '../utils/dateUtils';
 
 export interface TableColumn {
@@ -81,7 +81,7 @@ export class SideTableRenderer {
     }
 
     // Sort entries by start date for a clean sequential list
-    const sorted = [...entries].sort((a, b) => a.startYear - b.startYear);
+    const sorted = [...entries].sort(compareEntriesForLayout);
 
     // Body rows — sequential list layout
     for (const entry of sorted) {
@@ -178,7 +178,7 @@ export class SideTableRenderer {
       if (group.collapsed) continue;
 
       // Entry rows (sorted by start date within group)
-      const sorted = [...group.entries].sort((a, b) => a.startYear - b.startYear);
+      const sorted = [...group.entries].sort(compareEntriesForLayout);
       for (const entry of sorted) {
         const row = this.tableEl.createDiv({ cls: 'sabidurian-st-row sabidurian-st-row-grouped' });
 

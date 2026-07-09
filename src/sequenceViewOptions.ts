@@ -28,6 +28,20 @@ export function getSequenceViewOptions(config: BasesViewConfig): any[] {
       placeholder: 'Select property…',
     },
     {
+      type: 'text',
+      key: 'colorMapJson',
+      displayName: 'Color map (JSON)',
+      description: 'JSON object mapping Color by values to CSS colors, e.g. {"high":"#ef4444","low":"#22c55e"}',
+      placeholder: '{"high":"#ef4444","normal":"#eab308","low":"#22c55e"}',
+    },
+    {
+      type: 'text',
+      key: 'tooltipPropsJson',
+      displayName: 'Tooltip properties (JSON)',
+      description: 'JSON array of extra property keys to show in tooltips, e.g. ["status","owner"]',
+      placeholder: '["status","owner","priority"]',
+    },
+    {
       type: 'property',
       key: 'dependencyProp',
       displayName: 'Dependency property',

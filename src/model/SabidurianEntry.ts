@@ -34,6 +34,8 @@ export interface SabidurianEntry {
   dependencies: string[];
   /** Additional properties for tooltip display. */
   properties: Record<string, string>;
+  /** Raw property keys keyed by display label, used for tooltip filtering. */
+  propertyKeys: Record<string, string>;
   /** Group key this entry belongs to (set when grouped). */
   groupKey?: string;
   /** Whether this entry is ongoing (has start but no end — extends to today). */
